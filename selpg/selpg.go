@@ -87,18 +87,20 @@ func process_input(args *selpg_args){
 	page_count := 1
 	buf := bufio.NewReader(fin)
 
-	var cmd *exec.Cmd
+	cmd := &exec.Cmd{}
 	var fout io.WriteCloser
-	if len(args.print_dest) > 0 {
-		cmd := exec.Command("lp", "-d"+args.print_dest)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		fout, err := cmd.StdinPipe()
+	if args.print_dest==""{
+		fout = os.Stdout
+	}else{
+		cmd = exec.Command("cat")
+		var err error
+		cmd.Stdout,err = os.OpenFile(args.print_dest,os.O_WRONLY|os.O_TRUNC,0600)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\n[Error]%s:", "Input pipe open\n")
 			os.Exit(0)
 		}
-		defer fout.Close()
+		fout, _= cmd.StdinPipe()
+		cmd.Start();
 	}
 	
 	for true {
@@ -124,37 +126,17 @@ func process_input(args *selpg_args){
 		}
 		if (page_count >= args.start_page) && (page_count <= args.end_page) {
 			var outputErr error
-			if len(args.print_dest) == 0 {
-				_, outputErr = fmt.Fprintf(os.Stdout, "%s", line)
-			} else {
-				_, outputErr = fout.Write([]byte(line))
-				if outputErr != nil {
-					fmt.Fprintf(os.Stderr, "\n[Error]%s:", "pipe input")
-					os.Exit(0)
-				}
+			_, outputErr = fout.Write([]byte(line))
+			if outputErr != nil {
+				fmt.Fprintf(os.Stderr, "\n[Error]%s:", "pipe input")
+				os.Exit(0)
 			}
+			
 			if outputErr != nil {
 				fmt.Fprintf(os.Stderr, "\n[Error]%s:", "Error happend when output the pages.")
 				os.Exit(0)
 			}
 		}
-	}
-
-	if len(args.print_dest) > 0 {
-		fout.Close()
-		errStart := cmd.Run()
-		if errStart != nil {
-			fmt.Fprintf(os.Stderr, "CMD Run")
-			os.Exit(0)
-		}
-	}
-
-	if page_count < args.start_page {
-		fmt.Fprintf(os.Stderr, "\n[Error]: startPage (%d) greater than total pages (%d), no output written\n", args.start_page, page_count)
-		os.Exit(0)
-	} else if page_count < args.start_page {
-		fmt.Fprintf(os.Stderr, "\n[Error]: endPage (%d) greater than total pages (%d), less output than expected\n",args. end_page, page_count)
-		os.Exit(0)
 	}
 }
 
